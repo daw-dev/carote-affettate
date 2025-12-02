@@ -1,1 +1,7 @@
-# Carote Affettate
+# Sliced Carrots
+
+## The goal
+
+## Our solution
+
+
