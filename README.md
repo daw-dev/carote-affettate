@@ -3,7 +3,7 @@
 ## Usage
 
 1. Activate the python virtual environment:
-```nu
+```nushell
 overlay use kathara-simulator/.venv/bin/activate.nu
 python kathara-simulator/main.py
 ```
