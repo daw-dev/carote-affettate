@@ -1,20 +1,37 @@
-import time
-import subprocess
 from Kathara.model.Lab import Lab
 from Kathara.manager.Kathara import Kathara
 
-lab = Lab("kathara network scenario")
+print("Loading scripts...")
 
-pc1 = lab.new_machine("pc1")
-pc2 = lab.new_machine("pc2")
+controller_startup = open("controller-startup.sh").read()
+host_startup = open("host-startup.sh").read()
+switch_startup = open("switch-startup.sh").read()
 
-lab.connect_machine_to_link(pc1.name, "A")
-lab.connect_machine_to_link(pc2.name, "A")
+lab = Lab("carote affettate")
 
-print("🚀 Deploying Lab...")
+controller = lab.new_machine("controller", image="kathara/ryu")
+
+lab.connect_machine_to_link(controller.name, "A")
+
+lab.create_startup_file_from_path(controller, "controller-startup.sh")
+
+controller_address = "10.0.1.1/24"
+controller.add_meta("env", f"CONTROLLER_ADDRESS={controller_address}")
+
+for i in range(5):
+    host = lab.new_machine(f"host{i}", image="kathara/base")
+
+    lab.connect_machine_to_link(host.name, "A")
+
+    lab.create_startup_file_from_path(host, "host-startup.sh")
+
+    device_address = f"10.0.1.{i + 10}/24"
+    host.add_meta("env", f"DEVICE_ADDRESS={device_address}")
+    
+print("Deploying Lab...")
 Kathara.get_instance().deploy_lab(lab)
 
-print("\n✅ Simulation running. Press Enter to stop and clean up.")
+print("Simulation running. Press Enter to stop and clean up.")
 _ = input()
 
 Kathara.get_instance().undeploy_lab(lab.hash)
