@@ -43,6 +43,7 @@ for i in range(lab_specs.N_SWITCH):
 
     device_address = f"10.0.2.{i + 1}/16"
     switch.add_meta("env", f"DEVICE_ADDRESS={device_address}")
+    switch.add_meta("env", f"CONTROLLER_ADDRESS={controller_address}")
     
 print("Deploying Lab...")
 Kathara.get_instance().deploy_lab(lab)
