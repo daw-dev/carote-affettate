@@ -35,21 +35,15 @@ uv sync
 ```
 
 3. Activate the python virtual environment:
-
 On Linux (bash):
-
 ```bash
 ./.venv/bin/activate
 ```
-
 On Linux (nushell):
-
 ```nushell
 overlay use .venv/bin/activate.nu
 ```
-
 On Windows (PowerShell):
-
 ```pwsh
 .\.venv\Scripts\activate.ps1
 ```
