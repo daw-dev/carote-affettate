@@ -22,21 +22,21 @@ Or through one of the build scripts `build.sh`, `build.nu`, `build.ps1` or `buil
 
 ### 2. Run the simulation
 
-#### 1. Cd into the kathara simulation 
+#### 2.1. Cd into the kathara simulation 
 
-```sh
+```bash
 cd kathara-simulation
 ```
 
-#### 2. Sync the python virtual environment:
+#### 2.2. Sync the python virtual environment:
 
-```sh
+```bash
 uv sync
 ```
 
-#### 3. Activate the python virtual environment:
+#### 2.3. Activate the python virtual environment:
 On Linux (bash):
-```sh
+```bash
 ./.venv/bin/activate
 ```
 On Linux (nushell):
@@ -48,12 +48,15 @@ On Windows (PowerShell):
 .\.venv\Scripts\activate.ps1
 ```
 
-#### 4. Start the simulation
+#### 2.4. Start the simulation
+
 ```bash
 python main.py
 ```
 
-5. To stop the simulation just press enter.
+#### 2.5. To stop the simulation just press enter.
+
+If for some reason you closed the program without pressing enter, `kathara wipe` can still forcibly stop the simulation.
 
 ### 4. Connect to a device
 
