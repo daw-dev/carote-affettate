@@ -54,7 +54,9 @@ On Windows (PowerShell):
 python main.py
 ```
 
-#### 2.5. To stop the simulation just press enter.
+#### 2.5. Stopping the simulation
+
+To stop the simulation just press enter.
 
 If for some reason you closed the program without pressing enter, `kathara wipe` can still forcibly stop the simulation.
 
