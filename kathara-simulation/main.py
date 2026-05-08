@@ -13,7 +13,7 @@ controller = lab.new_machine("controller", image="slicing-controller")
 
 lab.connect_machine_to_link(controller.name, "A")
 
-lab.create_startup_file_from_path(controller, "controller-startup.sh")
+lab.create_startup_file_from_path(controller, "scripts/controller-startup.sh")
 
 controller_address = "10.0.0.1/16"
 controller.add_meta("env", f"CONTROLLER_ADDRESS={controller_address}")
@@ -28,7 +28,7 @@ for i in range(lab_specs.N_HOST):
     for link in lab_specs.host_connections(i):
         lab.connect_machine_to_link(host.name, link)
 
-    lab.create_startup_file_from_path(host, "host-startup.sh")
+    lab.create_startup_file_from_path(host, "scripts/host-startup.sh")
     host.add_meta("volume", "../slicing-host/src|/host|ro")
 
     device_address = f"10.0.1.{i + 1}/16"
@@ -41,7 +41,7 @@ for i in range(lab_specs.N_SWITCH):
     for link in lab_specs.switch_connections(i):
         lab.connect_machine_to_link(switch.name, link)
 
-    lab.create_startup_file_from_path(switch, "switch-startup.sh")
+    lab.create_startup_file_from_path(switch, "scripts/switch-startup.sh")
 
     device_address = f"10.0.2.{i + 1}/16"
     switch.add_meta("env", f"DEVICE_ADDRESS={device_address}")
