@@ -24,19 +24,19 @@ Or through one of the build scripts `build.sh`, `build.nu`, `build.ps1` or `buil
 
 #### 1. Cd into the kathara simulation 
 
-```bash
+```sh
 cd kathara-simulation
 ```
 
 #### 2. Sync the python virtual environment:
 
-```bash
+```sh
 uv sync
 ```
 
 #### 3. Activate the python virtual environment:
 On Linux (bash):
-```bash
+```sh
 ./.venv/bin/activate
 ```
 On Linux (nushell):
