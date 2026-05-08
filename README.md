@@ -78,6 +78,19 @@ And then you can just run:
 konnect <device-name>
 ```
 
+### 5. What to do in the simulation
+
+To play around with the simulation, you should connect to a **host** (use `konnect host[number]`), then if you take a look
+at the `/host/` folder, you'll see that there are some scripts to play around with.
+
+The main one is `/host/request-slice.py` that is used to request a slice to the controller. The usage is ...
+
+The other ones are small applications like `/host/web-server.py`, `/host/web-client.py`, ...
+
+### _BONUS:_ How to personalize the network
+
+
+
 ## The goal
 
 ## Our solution
