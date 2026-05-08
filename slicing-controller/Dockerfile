@@ -1,3 +1,5 @@
 FROM kathara/pox
 
-RUN pip3.9 install ryu eventlet==0.30.2
+RUN python3.9 -m pip install "setuptools<59"
+RUN python3.9 -m pip install ryu
+RUN python3.9 -m pip install "eventlet==0.30.2"
