@@ -17,7 +17,7 @@ lab.create_startup_file_from_path(controller, "controller-startup.sh")
 
 controller_address = "10.0.0.1/16"
 controller.add_meta("env", f"CONTROLLER_ADDRESS={controller_address}")
-controller.add_meta("bridged", True)
+controller.add_meta("bridged", "true")
 
 lab_specs = importlib.import_module("labs.lab1_spec")
 
