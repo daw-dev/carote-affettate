@@ -63,10 +63,12 @@ If for some reason you closed the program without pressing enter, `kathara wipe`
 To connect to a specific device, you have to run bash on the relative container, to make it easier,
 the repository provides some simple helper commands. To activate them:
 
+In nushell:
 ```nushell
 source helpers/konnect.nu
 ```
 
+In bash:
 ```bash
 source helpers/konnect.sh
 ```
