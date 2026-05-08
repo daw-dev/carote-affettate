@@ -22,19 +22,19 @@ Or through one of the build scripts `build.sh`, `build.nu`, `build.ps1` or `buil
 
 ### 2. Run the simulation
 
-1. Cd into the kathara simulation 
+#### 1. Cd into the kathara simulation 
 
 ```bash
 cd kathara-simulation
 ```
 
-2. Sync the python virtual environment:
+#### 2. Sync the python virtual environment:
 
 ```bash
 uv sync
 ```
 
-3. Activate the python virtual environment:
+#### 3. Activate the python virtual environment:
 On Linux (bash):
 ```bash
 ./.venv/bin/activate
@@ -48,7 +48,7 @@ On Windows (PowerShell):
 .\.venv\Scripts\activate.ps1
 ```
 
-4. Start the simulation
+#### 4. Start the simulation
 ```bash
 python main.py
 ```
