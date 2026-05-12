@@ -1,4 +1,13 @@
-ip addr add $DEVICE_ADDRESS dev eth0
+#!/bin/bash
+
+for PAIR in $DEVICE_INTERFACES; do
+    IFS="=" read -r IFACE IP <<< "$PAIR"
+    
+    ip addr add $IP dev $IFACE
+    ip link set $IFACE up
+done
+
+# tc $CAPACITY
 
 /usr/share/openvswitch/scripts/ovs-ctl --system-id=random start
 ovs-vsctl add-br s1

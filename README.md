@@ -20,7 +20,7 @@ docker build -t slicing-host slicing-host
 
 Or through one of the build scripts `build.sh`, `build.nu`, `build.ps1` or `build.bat`
 
-### 2. Run the simulation
+### 2. Running the simulation
 
 #### 2.1. Cd into the kathara simulation 
 
@@ -60,7 +60,7 @@ To stop the simulation just press enter.
 
 If for some reason you closed the program without pressing enter, `kathara wipe` can still forcibly stop the simulation.
 
-### 4. Connect to a device
+### 4. Connecting to a device
 
 To connect to a specific device, you have to run bash on the relative container, to make it easier,
 the repository provides some simple helper commands. To activate them:
