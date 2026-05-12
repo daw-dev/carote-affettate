@@ -75,6 +75,11 @@ In bash:
 source helpers/konnect.sh
 ```
 
+In PowerShell:
+```pwsh
+. .\helpers\konnect.ps1
+```
+
 And then you can just run:
 ```bash
 konnect <device-name>
