@@ -36,6 +36,7 @@ lab_specs = importlib.import_module("labs.lab1_spec")
 
 for i in range(lab_specs.N_SWITCH):
     switch = lab.new_machine(f"switch{i}", image="kathara/sdn")
+    #print(f"Switch{i} created")
 
     ips = []
 
