@@ -1,3 +1,8 @@
-ip addr add $CONTROLLER_ADDRESS dev eth0
+#!/bin/bash
 
-ryu-manager /controller/main.py
+# Inside controller-startup.sh
+ip addr add $CONTROLLER_ADDRESS dev eth0
+ip link set eth0 up
+
+# Start Ryu
+ryu-manager --ofp-tcp-listen-port 6653 /controller/main.py
