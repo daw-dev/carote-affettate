@@ -15,8 +15,6 @@ connection_port = "6653"
 ip_generator = network.hosts()
 
 def new_ip():
-    # return f"{next(ip_generator)}/{network.prefixlen}"
-    # return f"{next(ip_generator)}:{connection_port}"
     return f"{next(ip_generator)}"
 
 G = nx.Graph()

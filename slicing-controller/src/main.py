@@ -2,7 +2,7 @@ import json
 import networkx as nx
 from ryu.base import app_manager
 from ryu.controller import ofp_event
-from ryu.controller.handler import CONFIG_DISPATCHER, set_ev_cls
+from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 from ryu.lib import dpid as dpid_lib
@@ -16,13 +16,8 @@ class StaticSlicingController(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(StaticSlicingController, self).__init__(*args, **kwargs)
-        self.switches = {}
-        self.net = nx.Graph()
-        
-        # 1. Load the pre-calculated graph
         self.load_topology('/topology.json')
         
-        # 2. Start the REST API
         wsgi = kwargs['wsgi']
         wsgi.register(SlicingRestApi, {api_instance_name: self})
         self.logger.info("Static Slicing Controller Ready.")
@@ -37,65 +32,44 @@ class StaticSlicingController(app_manager.RyuApp):
         except Exception as e:
             self.logger.error(f"Failed to load topology: {e}")
 
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    def packet_in_handler(self, ev):
+        self.logger.info("bro mi è arrivato un pacchetto, non so che fare")
+
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         datapath = ev.msg.datapath
-        self.switches[datapath.id] = datapath
-        self.logger.info(f"Switch {datapath.id} connected (Network is Dark).")
-
-    def provision_slice(self, src_ip, dst_ip, src_dpid, dst_dpid, bw_req):
-        """Finds a path with enough bandwidth, reserves it, and pushes flows."""
-        try:
-            # Create a subgraph of links that can support the requested bandwidth
-            def valid_link(u, v, d):
-                return d['available_capacity'] >= bw_req
-
-            valid_subgraph = nx.subgraph_view(self.net, filter_edge=valid_link)
-            
-            # Calculate shortest path on the filtered graph
-            path = nx.shortest_path(valid_subgraph, src_dpid, dst_dpid)
-            self.logger.info(f"Path calculated for {src_ip}->{dst_ip}: {path}")
-
-            # Push OpenFlow rules and update capacity
-            for i in range(len(path) - 1):
-                u = path[i]
-                v = path[i + 1]
-                
-                # Get the physical port from the graph
-                out_port = self.net[u][v]['port']
-                
-                # Push the rule to the switch
-                self.add_ip_flow(u, src_ip, dst_ip, out_port)
-                
-                # Deduct the bandwidth
-                self.net[u][v]['available_capacity'] -= bw_req
-                
-            return True, path
-
-        except nx.NetworkXNoPath:
-            self.logger.error("Slice Denied: No path with sufficient bandwidth.")
-            return False, []
-
-    def add_ip_flow(self, dpid, src_ip, dst_ip, out_port):
-        if dpid not in self.switches:
-            return
-        
-        datapath = self.switches[dpid]
-        parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
 
-        match = parser.OFPMatch(eth_type=0x0800, ipv4_src=src_ip, ipv4_dst=dst_ip)
-        actions = [parser.OFPActionOutput(out_port)]
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
-        
-        mod = parser.OFPFlowMod(datapath=datapath, priority=100, match=match, instructions=inst)
+        # 1. An empty match means "match every packet"
+        match = parser.OFPMatch()
+
+        # 2. The action is to output to the controller port
+        # OFPCML_NO_BUFFER tells the switch to send the entire packet to the controller
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)]
+
+        # 3. Apply the actions
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+
+        # 4. Construct the FlowMod message
+        # priority=0 is crucial. It ensures this rule only hits if no higher-priority rules match.
+        mod = parser.OFPFlowMod(datapath=datapath, priority=0,
+                                match=match, instructions=inst)
+
+        # 5. Send the rule to the switch
         datapath.send_msg(mod)
-
 
 class SlicingRestApi(ControllerBase):
     def __init__(self, req, link, data, **config):
         super(SlicingRestApi, self).__init__(req, link, data, **config)
         self.app = data[api_instance_name]
+
+    @route('hello-world', '/hello-world', methods=['GET'])
+    def hello_world(self, req, **kwargs):
+        return Response(status=200, body="hello, world!")
 
     @route('slicing', '/slice/request', methods=['POST'])
     def request_slice(self, req, **kwargs):
