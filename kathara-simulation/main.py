@@ -1,5 +1,4 @@
 # ignore annoying warning
-from textwrap import indent
 import warnings
 
 warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*", category=UserWarning)
@@ -69,7 +68,6 @@ topology_json = json.dumps(nx.node_link_data(G), indent=4)
 print(topology_json)
 
 lab = Lab("carote affettate")
-
 
 for node, data in G.nodes(data=True):
     machine = lab.new_machine(node, image=data["image"])

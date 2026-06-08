@@ -62,6 +62,26 @@ class StaticSlicingController(app_manager.RyuApp):
         # 5. Send the rule to the switch
         datapath.send_msg(mod)
 
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        if buffer_id:
+            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
+                                    priority=priority, match=match,
+                                    instructions=inst)
+        else:
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                    match=match, instructions=inst)
+        self.logger.info("Sending a FLOW_MOD to switch")
+        datapath.send_msg(mod)
+
+    def reserve_slice(self, src_ip, dst_ip, bandwidth):
+        valid_link = nx.subgraph_view(self.net, filter_edge=lambda u, v: self.net.edges[u, v].get("capacity", 0) > bandwidth)
+
+
 class SlicingRestApi(ControllerBase):
     def __init__(self, req, link, data, **config):
         super(SlicingRestApi, self).__init__(req, link, data, **config)
@@ -75,9 +95,8 @@ class SlicingRestApi(ControllerBase):
     def request_slice(self, req, **kwargs):
         try:
             data = json.loads(req.body)
-            success, path = self.app.provision_slice(
+            success, path = self.app.reserve_slice(
                 data['src_ip'], data['dst_ip'], 
-                data['src_dpid'], data['dst_dpid'], 
                 data['bandwidth']
             )
             
