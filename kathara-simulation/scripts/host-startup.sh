@@ -1,6 +1,6 @@
-for PAIR in $DEVICE_INTERFACES; do
-    IFS="=" read -r IFACE IP <<< "$PAIR"
-    
-    ip addr add $IP/16 dev $IFACE
-    ip link set $IFACE up
-done
+ip addr add $DEVICE_ADDRESS/16 dev eth0
+ip link set eth0 up
+
+# TODO: aggiungere come default gateway lo switch connesso
+#
+# log iperf in un file fuori

@@ -5,7 +5,6 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
-from ryu.lib import dpid as dpid_lib
 from webob import Response
 
 api_instance_name = 'slicing_api_app'
@@ -21,6 +20,7 @@ class StaticSlicingController(app_manager.RyuApp):
         wsgi = kwargs['wsgi']
         wsgi.register(SlicingRestApi, {api_instance_name: self})
         self.logger.info("Static Slicing Controller Ready.")
+        self.datapaths = {}
 
     def load_topology(self, filepath):
         try:
@@ -39,27 +39,21 @@ class StaticSlicingController(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         datapath = ev.msg.datapath
+        self.datapaths[int(datapath.id)] = datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        # 1. An empty match means "match every packet"
         match = parser.OFPMatch()
 
-        # 2. The action is to output to the controller port
-        # OFPCML_NO_BUFFER tells the switch to send the entire packet to the controller
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
 
-        # 3. Apply the actions
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
 
-        # 4. Construct the FlowMod message
-        # priority=0 is crucial. It ensures this rule only hits if no higher-priority rules match.
         mod = parser.OFPFlowMod(datapath=datapath, priority=0,
                                 match=match, instructions=inst)
 
-        # 5. Send the rule to the switch
         datapath.send_msg(mod)
 
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
@@ -78,8 +72,61 @@ class StaticSlicingController(app_manager.RyuApp):
         self.logger.info("Sending a FLOW_MOD to switch")
         datapath.send_msg(mod)
 
-    def reserve_slice(self, src_ip, dst_ip, bandwidth):
-        valid_link = nx.subgraph_view(self.net, filter_edge=lambda u, v: self.net.edges[u, v].get("capacity", 0) > bandwidth)
+    def instruct_switches(self, path, src_ip, dst_ip):
+        self.logger.info(f"creating path {path} from {src_ip} to {dst_ip}")
+        self.logger.info(self.datapaths)
+        for i in range(1, len(path) - 1):
+            current_node = path[i]
+            switch_id = self.net.nodes[current_node]["switch_id"]
+            
+            if not switch_id:
+                continue
+                
+            prev_node = path[i-1]
+            next_node = path[i+1]
+            
+            datapath = self.datapaths.get(switch_id)
+
+            if not datapath:
+                self.logger.warning(f"Switch {switch_id} is not connected to Ryu yet!")
+                continue
+
+            in_port = self.net.edges[prev_node][current_node]["target_port"]
+            out_port = self.net.edges[current_node][next_node]["source_port"]
+
+            if in_port is None or out_port is None:
+                self.logger.error(f"Missing port link data for {current_node}")
+                continue
+
+            parser = datapath.ofproto_parser
+            
+            match = parser.OFPMatch(
+                in_port=in_port,
+                eth_type=0x0800,
+                ipv4_src=src_ip,
+                ipv4_dst=dst_ip
+            )
+            
+            actions = [parser.OFPActionOutput(out_port)]
+            
+            self.add_flow(datapath, 100, match, actions)
+            self.logger.info(f"Installed flow on {current_node}: in={in_port} -> out={out_port}")
+
+    def reserve_slice(self, src, dst, bandwidth):
+        valid_links = nx.subgraph_view(self.net, filter_edge=lambda u, v: self.net.edges[u, v]["capacity"] > bandwidth)
+
+        try:
+            path = nx.shortest_path(valid_links, source=src, target=dst)
+
+            for i in range(len(path) - 1):
+                u = path[i]
+                v = path[i+1]
+                self.net.edges[u, v]['capacity'] -= bandwidth
+
+            self.instruct_switches(path, self.net.nodes[src]["interfaces"]["eth0"], self.net.nodes[dst]["interfaces"]["eth0"])
+
+        except nx.NetworkXNoPath:
+            return False
 
 
 class SlicingRestApi(ControllerBase):
@@ -95,8 +142,8 @@ class SlicingRestApi(ControllerBase):
     def request_slice(self, req, **kwargs):
         try:
             data = json.loads(req.body)
-            success, path = self.app.reserve_slice(
-                data['src_ip'], data['dst_ip'], 
+            path = self.app.reserve_slice(
+                data['src'], data['dst'], 
                 data['bandwidth']
             )
             
