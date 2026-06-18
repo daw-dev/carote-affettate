@@ -5,18 +5,12 @@ warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*", cat
 
 from Kathara.model.Lab import Lab
 from Kathara.manager.Kathara import Kathara
-import ipaddress
 import networkx as nx
 import json
 
-network = ipaddress.IPv4Network("10.0.0.0/16")
-hidden_network = ipaddress.IPv4Network("10.1.0.0/16")
-ip_generator = network.hosts()
-hidden_ip_generator = hidden_network.hosts()
-
 G = nx.Graph()
 
-CONTROLLER_ADDRESS = str(next(hidden_ip_generator))
+CONTROLLER_ADDRESS = "10.0.0.254"
 
 G.add_node(
         "controller",
@@ -26,29 +20,31 @@ G.add_node(
         device_address=CONTROLLER_ADDRESS,
     )
 
-for i in range(4):
+for i in range(1, 5):
     G.add_node(
             f"host{i}",
             image="kathara/base",
             startup="scripts/host-startup.sh",
             volume="../slicing-host/src|/host|ro",
-            device_address=str(next(ip_generator)),
+            device_address=f"10.{i}.0.2",
+            default_gateway=f"10.{i}.0.1",
         )
 
-for i in range(4):
+for i in range(1, 5):
     G.add_node(
             f"switch{i}",
             image="kathara/sdn",
             startup="scripts/switch-startup.sh",
-            device_address=str(next(ip_generator)),
-            hidden_address=str(next(hidden_ip_generator)),
-            switch_id=i + 1,
+            device_address=f"10.{i}.0.1",
+            hidden_address=f"10.0.0.{i}",
+            connected_host=f"10.{i}.0.2",
+            switch_id=i,
         )
     G.add_edge(f"switch{i}", "controller", capacity=5)
     G.add_edge(f"switch{i}", f"host{i}", capacity=5)
 
-for i in range(4):
-    for j in range(4):
+for i in range(1, 5):
+    for j in range(1, 5):
         if i == j:
             continue
         G.add_edge(f"switch{i}", f"switch{j}", capacity=5)
@@ -80,14 +76,18 @@ lab = Lab("carote affettate")
 for node, data in G.nodes(data=True):
     machine = lab.new_machine(node, image=data["image"])
     lab.create_startup_file_from_path(machine, data["startup"])
-    machine.add_meta("env", f"CONTROLLER_ADDRESS={CONTROLLER_ADDRESS}")
     if "volume" in data:
         machine.add_meta("volume", data["volume"])
+    machine.add_meta("env", f"CONTROLLER_ADDRESS={CONTROLLER_ADDRESS}")
     machine.add_meta("env", f"DEVICE_ADDRESS={data["device_address"]}")
     machine.add_meta("env", f"NAME={node}")
     if "switch_id" in data:
         machine.add_meta("env", f"SWITCH_ID={data["switch_id"]}")
         machine.add_meta("env", f"HIDDEN_IP={data["hidden_address"]}")
+    if "default_gateway" in data:
+        machine.add_meta("env", f"DEFAULT_GATEWAY={data["default_gateway"]}")
+    if "connected_host" in data:
+        machine.add_meta("env", f"CONNECTED_HOST={data["connected_host"]}")
 
 lab.machines["controller"].create_file_from_string(topology_json, "/topology.json")
 

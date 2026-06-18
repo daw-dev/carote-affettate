@@ -143,7 +143,7 @@ class SlicingRestApi(ControllerBase):
         try:
             data = json.loads(req.body)
             path = self.app.reserve_slice(
-                data['src'], data['dst'], 
+                data['src'], data['dst'],
                 data['bandwidth']
             )
             
