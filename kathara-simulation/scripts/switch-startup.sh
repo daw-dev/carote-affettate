@@ -1,54 +1,49 @@
 #!/bin/bash
 
+shopt -s expand_aliases
+
+alias ovs-ofctl="ovs-ofctl -O OpenFlow13"
+
 /usr/share/openvswitch/scripts/ovs-ctl --system-id=random start
-ovs-vsctl add-br s1
+ovs-vsctl add-br br0
 
 for DEV_PATH in /sys/class/net/eth*; do
     IFACE=$(basename $DEV_PATH)
     
     ip link set $IFACE up
 
-    if [ "$IFACE" == "eth0" ] || [ "$IFACE" == "eth1" ]; then
+    if [ "$IFACE" == "eth0" ]; then
         continue
     fi
     
-    ovs-vsctl add-port s1 $IFACE
+    ovs-vsctl add-port br0 $IFACE
 done
 
-ip link set s1 up
+ip link set br0 up
 
-ip addr add $DEVICE_ADDRESS/16 dev eth1
+ip addr add $DEVICE_ADDRESS/16 dev br0
 
 ip addr add $HIDDEN_IP/16 dev eth0
 
 DPID=$(printf "%016x" $SWITCH_ID)
 
-ovs-vsctl set bridge s1 other-config:datapath-id=$DPID protocols=[OpenFlow13]
+ovs-vsctl set bridge br0 other-config:datapath-id=$DPID protocols=[OpenFlow13]
 
-ovs-vsctl set-fail-mode s1 secure
+ovs-vsctl set-fail-mode br0 secure
 
-ovs-vsctl set-controller s1 tcp:$CONTROLLER_ADDRESS
+ovs-vsctl set-controller br0 tcp:$CONTROLLER_ADDRESS
 
 iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 
-# # ---------------------------------------------------------
-# # OUTBOUND: Towards the controller (from ANY port, including LOCAL)
-# # ---------------------------------------------------------
-# ovs-ofctl -O OpenFlow13 add-flow s1 "priority=100, ip, nw_dst=$CONTROLLER_ADDRESS, actions=output:1"
-# ovs-ofctl -O OpenFlow13 add-flow s1 "priority=100, arp, arp_tpa=$CONTROLLER_ADDRESS, actions=output:1"
-#
-# # ---------------------------------------------------------
-# # INBOUND: From the controller (Forward back to port 2)
-# # ---------------------------------------------------------
-# ovs-ofctl -O OpenFlow13 add-flow s1 "priority=100, in_port=1, ip, nw_src=$CONTROLLER_ADDRESS, actions=output:2"
-# ovs-ofctl -O OpenFlow13 add-flow s1 "priority=100, in_port=1, arp, arp_spa=$CONTROLLER_ADDRESS, actions=output:2"
-#
-# # ---------------------------------------------------------
-# # INTERCEPT: Traffic meant for the switch itself
-# # ---------------------------------------------------------
-# ovs-ofctl -O OpenFlow13 add-flow s1 "priority=110, ip, nw_dst=$DEVICE_ADDRESS, actions=LOCAL"
-# ovs-ofctl -O OpenFlow13 add-flow s1 "priority=110, arp, arp_tpa=$DEVICE_ADDRESS, actions=LOCAL"
+ovs-ofctl add-flow br0 "priority=100, arp, in_port=1, actions=LOCAL"
 
+ovs-ofctl add-flow br0 "priority=100, ip, in_port=1, nw_dst=$CONTROLLER_ADDRESS, actions=LOCAL"
+
+ovs-ofctl add-flow br0 "priority=100, in_port=LOCAL, actions=output:1"
+
+echo 'alias ovs-ofctl="ovs-ofctl -O OpenFlow13"' >> /root/.bashrc
+
+#
 # cat /proc/sys/net/ipv4/ip_forward
 #
 # BANDWIDTH MASSIMA NELLA REGOLA

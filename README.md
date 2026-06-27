@@ -94,6 +94,11 @@ The main one is `/host/request-slice.py` that is used to request a slice to the 
 
 The other ones are small applications like `/host/web-server.py`, `/host/web-client.py`, ...
 
+```bash
+curl --json '{"src": "host1", "dst": "host2", "bandwidth": 2}' $CONTROLLER_ADDRESS:8080/slice/request
+curl --json '{"src": "host2", "dst": "host1", "bandwidth": 2}' $CONTROLLER_ADDRESS:8080/slice/request
+```
+
 ### _BONUS:_ How to personalize the network
 
 

@@ -28,6 +28,7 @@ for i in range(1, 5):
             volume="../slicing-host/src|/host|ro",
             device_address=f"10.{i}.0.2",
             default_gateway=f"10.{i}.0.1",
+            mac_address=f"00:00:00:00:00:{i:02x}",
         )
 
 for i in range(1, 5):
@@ -49,23 +50,26 @@ for i in range(1, 5):
             continue
         G.add_edge(f"switch{i}", f"switch{j}", capacity=5)
 
-def add_ip_to_node(node):
+def switch_port(node):
     if node == "controller":
         return
     if "port_count" in G.nodes[node]:
         G.nodes[node]["port_count"] += 1
-        return G.nodes[node]["port_count"]
+        return G.nodes[node]["port_count"] - 1
     else:
         G.nodes[node]["port_count"] = 1
-        return G.nodes[node]["port_count"]
+        return G.nodes[node]["port_count"] - 1
 
 for u, v in G.edges():
-    u_if = add_ip_to_node(u)
-    v_if = add_ip_to_node(v)
+    u_if = switch_port(u)
+    v_if = switch_port(v)
+    ports = {}
     if u_if:
-        G.edges[u, v]["source_port"] = u_if
+        ports[u] = u_if
     if v_if:
-        G.edges[u, v]["target_port"] = v_if
+        ports[v] = v_if
+
+    G.edges[u, v]["ports"] = ports
 
 topology_json = json.dumps(nx.node_link_data(G), indent=4)
 
@@ -101,8 +105,17 @@ for u, v in G.edges():
         lab.connect_machine_to_link(u, "CONTROLLER")
         continue
 
-    lab.connect_machine_to_link(u, f"{u}__to__{v}")
-    lab.connect_machine_to_link(v, f"{u}__to__{v}")
+    lab.connect_machine_to_link(u, f"{u}__to__{v}", mac_address=G.nodes[u].get("mac_address"))
+    lab.connect_machine_to_link(v, f"{u}__to__{v}", mac_address=G.nodes[v].get("mac_address"))
+
+wireshark = lab.new_machine(
+        "wireshark",
+        image="lscr.io/linuxserver/wireshark",
+        port="3000:3000",
+        # bridged=True,
+    )
+
+lab.connect_machine_obj_to_link(wireshark, "host2__to__switch2")
 
 print("Deploying Lab...")
 Kathara.get_instance().deploy_lab(lab)

@@ -34,7 +34,7 @@ class StaticSlicingController(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
-        self.logger.info("bro mi è arrivato un pacchetto, non so che fare")
+        self.logger.info(f"Switch with id {ev.msg.datapath.id} asks for help")
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -74,13 +74,14 @@ class StaticSlicingController(app_manager.RyuApp):
 
     def instruct_switches(self, path, src_ip, dst_ip):
         self.logger.info(f"creating path {path} from {src_ip} to {dst_ip}")
-        self.logger.info(self.datapaths)
         for i in range(1, len(path) - 1):
             current_node = path[i]
             switch_id = self.net.nodes[current_node]["switch_id"]
             
             if not switch_id:
                 continue
+
+            self.logger.info(f"sending flow to {switch_id}")
                 
             prev_node = path[i-1]
             next_node = path[i+1]
@@ -91,8 +92,8 @@ class StaticSlicingController(app_manager.RyuApp):
                 self.logger.warning(f"Switch {switch_id} is not connected to Ryu yet!")
                 continue
 
-            in_port = self.net.edges[prev_node][current_node]["target_port"]
-            out_port = self.net.edges[current_node][next_node]["source_port"]
+            in_port = self.net.edges[prev_node, current_node]["ports"][current_node]
+            out_port = self.net.edges[current_node, next_node]["ports"][current_node]
 
             if in_port is None or out_port is None:
                 self.logger.error(f"Missing port link data for {current_node}")
@@ -107,7 +108,12 @@ class StaticSlicingController(app_manager.RyuApp):
                 ipv4_dst=dst_ip
             )
             
-            actions = [parser.OFPActionOutput(out_port)]
+            actions = []
+            if i == len(path) - 2:
+                switch_gateway_mac = datapath.ports[datapath.ofproto.OFPP_LOCAL].hw_addr
+                actions.append(parser.OFPActionSetField(eth_src=switch_gateway_mac))
+                actions.append(parser.OFPActionSetField(eth_dst=self.net.nodes[path[-1]]["mac_address"]))
+            actions.append(parser.OFPActionOutput(out_port))
             
             self.add_flow(datapath, 100, match, actions)
             self.logger.info(f"Installed flow on {current_node}: in={in_port} -> out={out_port}")
@@ -123,7 +129,7 @@ class StaticSlicingController(app_manager.RyuApp):
                 v = path[i+1]
                 self.net.edges[u, v]['capacity'] -= bandwidth
 
-            self.instruct_switches(path, self.net.nodes[src]["interfaces"]["eth0"], self.net.nodes[dst]["interfaces"]["eth0"])
+            self.instruct_switches(path, self.net.nodes[src]["device_address"], self.net.nodes[dst]["device_address"])
 
         except nx.NetworkXNoPath:
             return False
@@ -147,8 +153,7 @@ class SlicingRestApi(ControllerBase):
                 data['bandwidth']
             )
             
-            if success:
-                return Response(status=200, json_body={"status": "Provisioned", "path": path})
-            return Response(status=503, json_body={"status": "Denied", "reason": "Insufficient Bandwidth"})
+            return Response(status=200, json_body={"status": "Provisioned", "path": path})
+            # return Response(status=503, json_body={"status": "Denied", "reason": "Insufficient Bandwidth"})
         except Exception as e:
             return Response(status=400, json_body={"error": str(e)})
