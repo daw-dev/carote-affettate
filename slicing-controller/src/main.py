@@ -1,3 +1,4 @@
+from ctypes import addressof
 import json
 import networkx as nx
 from ryu.base import app_manager
@@ -6,6 +7,8 @@ from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, set_ev_cl
 from ryu.ofproto import ofproto_v1_3
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 from webob import Response
+import subprocess
+import os
 
 api_instance_name = 'slicing_api_app'
 
@@ -16,6 +19,7 @@ class StaticSlicingController(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(StaticSlicingController, self).__init__(*args, **kwargs)
         self.load_topology('/topology.json')
+        self.add_nodes_to_dns('/etc/hosts')
         
         wsgi = kwargs['wsgi']
         wsgi.register(SlicingRestApi, {api_instance_name: self})
@@ -31,6 +35,19 @@ class StaticSlicingController(app_manager.RyuApp):
             self.logger.info("Topology graph loaded successfully.")
         except Exception as e:
             self.logger.error(f"Failed to load topology: {e}")
+
+    def add_nodes_to_dns(self, filepath):
+        try:
+            with open(filepath, 'a') as f:
+                for node, data in self.net.nodes(data=True):
+                    address = data["device_address"]
+                    f.write(f"{address} {node}\n")
+
+                self.logger.info("DNS nodes written")
+                address = os.environ.get("DEVICE_ADDRESS")
+                subprocess.Popen(["dnsmasq", f"--listen-address={address}", "--bind-interfaces"])
+        except Exception as e:
+            self.logger.error(f"Failed to write dns nodes: {e}")
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
