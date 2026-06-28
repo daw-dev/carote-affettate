@@ -97,6 +97,7 @@ The other ones are small applications like `/host/web-server.py`, `/host/web-cli
 ```bash
 curl --json '{"src": "host1", "dst": "host2", "bandwidth": 2}' $CONTROLLER_ADDRESS:8080/slice/request
 curl --json '{"src": "host2", "dst": "host1", "bandwidth": 2}' $CONTROLLER_ADDRESS:8080/slice/request
+curl -X DELETE --json '{"src": "host1", "dst": "host2"}' $CONTROLLER_ADDRESS:8080/slice/request
 ```
 
 ### _BONUS:_ How to personalize the network

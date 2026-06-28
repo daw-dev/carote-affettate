@@ -7,6 +7,8 @@ from Kathara.model.Lab import Lab
 from Kathara.manager.Kathara import Kathara
 import networkx as nx
 import json
+import math
+import random
 
 G = nx.Graph()
 
@@ -41,14 +43,14 @@ for i in range(1, 5):
             connected_host=f"10.{i}.0.2",
             switch_id=i,
         )
-    G.add_edge(f"switch{i}", "controller", capacity=5)
-    G.add_edge(f"switch{i}", f"host{i}", capacity=5)
+    G.add_edge(f"switch{i}", "controller", capacity=math.inf)
+    G.add_edge(f"switch{i}", f"host{i}", capacity=math.inf)
 
 for i in range(1, 5):
     for j in range(1, 5):
         if i == j:
             continue
-        G.add_edge(f"switch{i}", f"switch{j}", capacity=5)
+        G.add_edge(f"switch{i}", f"switch{j}", capacity=random.randrange(5,25))
 
 def switch_port(node):
     if node == "controller":

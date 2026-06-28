@@ -47,3 +47,4 @@ echo 'alias ovs-ofctl="ovs-ofctl -O OpenFlow13"' >> /root/.bashrc
 # cat /proc/sys/net/ipv4/ip_forward
 #
 # BANDWIDTH MASSIMA NELLA REGOLA
+# tc capacita max
