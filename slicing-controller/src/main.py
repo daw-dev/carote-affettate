@@ -94,7 +94,8 @@ class StaticSlicingController(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        mod = parser.OFPFlowMod(datapath=datapath, match=match, command=ofproto.OFPFC_DELETE)
+        mod = parser.OFPFlowMod(datapath=datapath, match=match, command=ofproto.OFPFC_DELETE, 
+                                out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY)
         self.logger.info("Deleting a path")
         datapath.send_msg(mod)
 
@@ -164,6 +165,7 @@ class StaticSlicingController(app_manager.RyuApp):
             parser = datapath.ofproto_parser
             
             match = parser.OFPMatch(
+                eth_type=0x0800,
                 ipv4_src=src_ip,
                 ipv4_dst=dst_ip
             )
