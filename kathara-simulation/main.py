@@ -46,11 +46,19 @@ for i in range(1, 5):
     G.add_edge(f"switch{i}", "controller", capacity=math.inf)
     G.add_edge(f"switch{i}", f"host{i}", capacity=math.inf)
 
+switch_switch_capacity = {}
+
+for i in range(1, 5):
+    for j in range(i+1, 5):
+        cap = random.randrange(5, 25)
+        switch_switch_capacity[(i, j)] = cap
+
 for i in range(1, 5):
     for j in range(1, 5):
         if i == j:
             continue
-        G.add_edge(f"switch{i}", f"switch{j}", capacity=random.randrange(5,25))
+        cap = switch_switch_capacity[(min(i, j), max(i, j))]
+        G.add_edge(f"switch{i}", f"switch{j}", capacity=cap)
 
 def switch_port(node):
     if node == "controller":
@@ -72,6 +80,44 @@ for u, v in G.edges():
         ports[v] = v_if
 
     G.edges[u, v]["ports"] = ports
+
+edges_list = list(G.edges())
+switch_count = {f"switch{i}": 0 for i in range(1, 5)}  # conta le interfacce già usate
+switch_links = {f"switch{i}": [] for i in range(1, 5)}
+
+for u, v in edges_list:
+    # Connessioni controller
+    if u == "controller" or v == "controller":
+        sw = v if u == "controller" else u
+        if sw in switch_count:
+            switch_count[sw] += 1
+        continue
+
+    # Connessioni host
+    if u.startswith("host") or v.startswith("host"):
+        sw = v if u.startswith("host") else u
+        if sw in switch_count:
+            switch_count[sw] += 1
+        continue
+
+        # Connessioni switch-switch
+    if u in switch_count and v in switch_count:
+        cap = G[u][v]['capacity']          # capacità dell'arco
+        iface_u = f"eth{switch_count[u]}"  # prossima interfaccia libera su u
+        iface_v = f"eth{switch_count[v]}"  # prossima interfaccia libera su v
+        switch_links[u].append((iface_u, cap))
+        switch_links[v].append((iface_v, cap))
+        switch_count[u] += 1
+        switch_count[v] += 1
+
+switch_links_env = {}
+
+for sw in switch_links:
+    if switch_links[sw]:
+        link_str = ",".join([f"{iface}:{cap}" for iface, cap in switch_links[sw]])
+        switch_links_env[sw] = link_str
+    else:
+        switch_links_env[sw] = ""
 
 topology_json = json.dumps(nx.node_link_data(G), indent=4)
 
