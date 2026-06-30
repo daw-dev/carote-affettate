@@ -206,6 +206,27 @@ class StaticSlicingController(app_manager.RyuApp):
         else:
             return False
         
+    def slice_exists(self, src, dst):
+        if not src or not dst:
+            return False
+        return (src, dst) in self.slices
+    
+    def get_slice_controller(self, src, dst):
+        if(src, dst) in self.slices:
+            path, bandwidth = self.slices[(src, dst)]
+            return {"path": path, "bandwidth": bandwidth}
+        return None
+    
+    def delete_slices_by_src_controller(self, src):
+        keys_to_delete = [key for key in self.slices.keys() if key[0] == src]
+        if not keys_to_delete:
+            return 0
+        
+        for s, d in keys_to_delete:
+            self.delete_slice(s, d)
+        
+        return len(keys_to_delete)
+        
 
 
 
@@ -218,30 +239,82 @@ class SlicingRestApi(ControllerBase):
     def hello_world(self, req, **kwargs):
         return Response(status=200, body="hello, world!")
 
-    @route('slicing', '/slice/request', methods=['POST'])
+    @route('slicing', '/slice/{src}/{dst}', methods=['POST'])
     def request_slice(self, req, **kwargs):
         try:
-            data = json.loads(req.body)
-            path = self.app.reserve_slice(
-                data['src'], data['dst'],
-                data['bandwidth']
-            )
+            src = kwargs.get('src')
+            dst = kwargs.get('dst')
+            
+            try:
+                data = json.loads(req.body)
+            except ValueError:
+                return Response(status=400, json_body={"error": "Invalid JSON body"})
+
+            
+            bandwidth = data.get('bandwidth')
+
+            if bandwidth is None:
+                return Response(status=400, json_body={"error": "Missing 'bandwidth' in JSON body"})
+            
+            try:
+                bandwidth = int(bandwidth)
+            except ValueError:
+                return Response(status=400, json_body={"error": "Bandwidth must be a valid number"})
+            
+            if self.app.slice_exists(src, dst):
+                return Response(status=409, json_body={"status": "Denied", "reason": "Slice already exists"})
+            
+            path = self.app.reserve_slice(src, dst, bandwidth)
 
             if path:
                 return Response(status=200, json_body={"status": "Provisioned", "path": path})
             else:
                 return Response(status=503, json_body={"status": "Denied", "reason": "Insufficient Bandwidth"})
+
         except Exception as e:
             return Response(status=400, json_body={"error": str(e)})
 
-    @route('slicing', '/slice/request', methods=['DELETE'])
+
+
+    @route('slicing', '/slice/{src}/{dst}', methods=['DELETE'])
     def request_delete_slice(self, req, **kwargs):
         try:
-            data = json.loads(req.body)
-            deleted = self.app.delete_slice(data["src"], data["dst"])
+            src = kwargs.get('src')
+            dst = kwargs.get('dst')
+            deleted = self.app.delete_slice(src, dst)
             if deleted:
                 return Response(status=200, json_body={"status": "Deleted"})
             else:
                 return Response(status=400, json_body={"status": "Denied", "reason": "Inexistent path"})
         except Exception as e:
             return Response(status=400, json_body={"error": str(e)})
+        
+    @route('slicing', '/slice/{src}/{dst}', methods=['GET'])
+    def get_slice(self, req, **kwargs):
+        
+        src = kwargs.get('src')
+        dst = kwargs.get('dst')
+        info = self.app.get_slice_controller(src, dst)
+        if info is None:
+            return Response(status=404, json_body={"error": "Slice not found"})
+        return Response(status=200, json_body={
+            "status": "OK",
+            "src": src,
+            "dst": dst,
+            "bandwidth": info["bandwidth"],
+            "path": info["path"]
+        })
+
+    @route('slicing', '/slice/{src}', methods=['DELETE'])
+    def delete_slices_by_src(self, req, **kwargs):
+    
+        src = kwargs.get('src')
+        count = self.app.delete_slices_by_src_controller(src)
+        if count == 0:
+            return Response(status=404, json_body={"error": "No slices found for source"})
+        return Response(status=200, json_body={
+            "status": "Deleted",
+            "count": count,
+            "source": src
+        })
+        
