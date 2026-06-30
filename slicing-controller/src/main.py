@@ -227,6 +227,25 @@ class StaticSlicingController(app_manager.RyuApp):
         
         return len(keys_to_delete)
         
+    def modify_slice_controller(self, src, dst, new_bandwidth):
+        if (src, dst) not in self.slices:
+            return False, "Slice does not exist"
+        
+        path, current_bandwidth = self.slices[(src, dst)]
+        delta = new_bandwidth - current_bandwidth
+
+        if delta > 0:
+            for i in range(len(path)-1):
+                u, v = path[i], path[i+1]
+                if self.net.edges[u, v]['capacity'] < delta:
+                    return False, "Insufficient bandwidth"
+                
+            for i in range(len(path)-1):
+                u, v = path[i], path[i+1]
+                self.net.edges[u, v]['capacity'] += current_bandwidth - new_bandwidth
+                
+            self.slices[(src, dst)] = (path, new_bandwidth)
+            return True, "Modified"
 
 
 
@@ -317,4 +336,41 @@ class SlicingRestApi(ControllerBase):
             "count": count,
             "source": src
         })
+    
+    @route('slicing', '/slice/{src}/{dst}', methods=['PUT'])
+    def modify_slice(self, req, **kwargs):
+        try:
+            src = kwargs.get('src')
+            dst = kwargs.get('dst')
+
+            try:
+                data = json.loads(req.body)
+            except ValueError:
+                return Response(status=400, json_body={"error": "Invalid JSON body"})
+            
+            bandwidth = data.get('bandwidth')
+            if bandwidth is None:
+                return Response(status=400, json_body={"error": "Missing 'bandwidth' in JSON body"})
+            
+            try:
+                bandwidth = int(bandwidth)
+            except ValueError:
+                return Response(status=400, json_body={"error": "Bandwidth must be a valid number"})
+            
+            if bandwidth <= 0:
+                return Response(status=400, json_body={"error": "Bandwidth must be positive"})
+
+            success, msg = self.app.modify_slice_controller(src, dst, bandwidth)
+            if success:
+                return Response(status=200, json_body={
+                    "status": msg,
+                    "new_bandwidth": bandwidth,
+                    "path": self.app.slices[(src, dst)][0]
+                })
+            else:
+                status_code = 404 if "does not exist" in msg else 409
+                return Response(status=status_code, json_body={"status": "Denied", "reason": msg})
+            
+        except Exception as e:
+            return Response(status=400, json_body={"error": str(e)})
         

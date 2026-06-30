@@ -100,6 +100,7 @@ curl --json '{"bandwidth": 2}' $CONTROLLER_ADDRESS:8080/slice/host2/host1
 curl -X DELETE $CONTROLLER_ADDRESS:8080/slice/host1/host2
 curl -X GET $CONTROLLER_ADDRESS:8080/slice/host1/host2
 curl -X DELETE $CONTROLLER_ADDRESS:8080/slice/host1
+curl -X PUT --json '{"bandwidth": 5}' $CONTROLLER_ADDRESS:8080/slice/host1/host2
 ```
 
 ### _BONUS:_ How to personalize the network
