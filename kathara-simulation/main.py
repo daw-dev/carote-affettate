@@ -49,7 +49,8 @@ for i in range(1, 5):
 
 for i in range(1, 5):
     for j in range(1, i):
-        G.add_edge(f"switch{i}", f"switch{j}", capacity=random.randrange(5, 25))
+        cap=random.randrange(5, 25)
+        G.add_edge(f"switch{i}", f"switch{j}", capacity=cap * cap)
 
 def switch_port(node):
     if not "port_count" in G.nodes[node]:
