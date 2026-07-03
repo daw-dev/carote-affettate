@@ -42,33 +42,21 @@ for i in range(1, 5):
             hidden_address=f"10.0.0.{i}",
             connected_host=f"10.{i}.0.2",
             switch_id=i,
+            port_count=0,
         )
-    G.add_edge(f"switch{i}", "controller", capacity=math.inf)
-    G.add_edge(f"switch{i}", f"host{i}", capacity=math.inf)
-
-switch_switch_capacity = {}
+    G.add_edge(f"switch{i}", "controller")
+    G.add_edge(f"switch{i}", f"host{i}")
 
 for i in range(1, 5):
-    for j in range(i+1, 5):
-        cap = random.randrange(5, 25)
-        switch_switch_capacity[(i, j)] = cap
-
-for i in range(1, 5):
-    for j in range(1, 5):
-        if i == j:
-            continue
-        cap = switch_switch_capacity[(min(i, j), max(i, j))]
-        G.add_edge(f"switch{i}", f"switch{j}", capacity=cap)
+    for j in range(1, i):
+        G.add_edge(f"switch{i}", f"switch{j}", capacity=random.randrange(5, 25))
 
 def switch_port(node):
-    if node == "controller":
+    if not "port_count" in G.nodes[node]:
         return
-    if "port_count" in G.nodes[node]:
-        G.nodes[node]["port_count"] += 1
-        return G.nodes[node]["port_count"] - 1
-    else:
-        G.nodes[node]["port_count"] = 1
-        return G.nodes[node]["port_count"] - 1
+    
+    G.nodes[node]["port_count"] += 1
+    return G.nodes[node]["port_count"] - 1
 
 for u, v in G.edges():
     u_if = switch_port(u)
@@ -81,49 +69,58 @@ for u, v in G.edges():
 
     G.edges[u, v]["ports"] = ports
 
-edges_list = list(G.edges())
-switch_count = {f"switch{i}": 0 for i in range(1, 5)}  # conta le interfacce già usate
-switch_links = {f"switch{i}": [] for i in range(1, 5)}
+# edges_list = list(G.edges())
+# switch_count = {f"switch{i}": 0 for i in range(1, 5)}  # conta le interfacce già usate
+# switch_links = {f"switch{i}": [] for i in range(1, 5)}
 
-for u, v in edges_list:
-    # Connessioni controller
-    if u == "controller" or v == "controller":
-        sw = v if u == "controller" else u
-        if sw in switch_count:
-            switch_count[sw] += 1
-        continue
+# for u, v in edges_list:
+#     # Connessioni controller
+#     if u == "controller" or v == "controller":
+#         sw = v if u == "controller" else u
+#         if sw in switch_count:
+#             switch_count[sw] += 1
+#         continue
 
-    # Connessioni host
-    if u.startswith("host") or v.startswith("host"):
-        sw = v if u.startswith("host") else u
-        if sw in switch_count:
-            switch_count[sw] += 1
-        continue
+#     # Connessioni host
+#     if u.startswith("host") or v.startswith("host"):
+#         sw = v if u.startswith("host") else u
+#         if sw in switch_count:
+#             switch_count[sw] += 1
+#         continue
 
-        # Connessioni switch-switch
-    if u in switch_count and v in switch_count:
-        cap = G[u][v]['capacity']          # capacità dell'arco
-        iface_u = f"eth{switch_count[u]}"  # prossima interfaccia libera su u
-        iface_v = f"eth{switch_count[v]}"  # prossima interfaccia libera su v
-        switch_links[u].append((iface_u, cap))
-        switch_links[v].append((iface_v, cap))
-        switch_count[u] += 1
-        switch_count[v] += 1
+#         # Connessioni switch-switch
+#     if u in switch_count and v in switch_count:
+#         cap = G[u][v]['capacity']          # capacità dell'arco
+#         iface_u = f"eth{switch_count[u]}"  # prossima interfaccia libera su u
+#         iface_v = f"eth{switch_count[v]}"  # prossima interfaccia libera su v
+#         switch_links[u].append((iface_u, cap))
+#         switch_links[v].append((iface_v, cap))
+#         switch_count[u] += 1
+#         switch_count[v] += 1
 
-switch_links_env = {}
+# switch_links_env = {}
 
-for sw in switch_links:
-    if switch_links[sw]:
-        link_str = ",".join([f"{iface}:{cap}" for iface, cap in switch_links[sw]])
-        switch_links_env[sw] = link_str
-    else:
-        switch_links_env[sw] = ""
+# for sw in switch_links:
+#     if switch_links[sw]:
+#         link_str = ",".join([f"{iface}:{cap}" for iface, cap in switch_links[sw]])
+#         switch_links_env[sw] = link_str
+#     else:
+#         switch_links_env[sw] = ""
 
 topology_json = json.dumps(nx.node_link_data(G), indent=4)
 
 print(topology_json)
 
 lab = Lab("carote affettate")
+
+def switch_capacities(switch_name):
+    capacities = {}
+    for _, _, data in G.edges(switch_name, data=True):
+        if "capacity" in data:
+            interface = f"eth{data["ports"][switch_name]}"
+            capacities[interface] = data["capacity"]
+    
+    return ",".join([f"{iface}:{cap}" for iface, cap in capacities.items()])
 
 for node, data in G.nodes(data=True):
     machine = lab.new_machine(node, image=data["image"])
@@ -136,10 +133,11 @@ for node, data in G.nodes(data=True):
     if "switch_id" in data:
         machine.add_meta("env", f"SWITCH_ID={data["switch_id"]}")
         machine.add_meta("env", f"HIDDEN_IP={data["hidden_address"]}")
+        machine.add_meta("env", f"CONNECTED_HOST={data["connected_host"]}")
+        caps = switch_capacities(node)
+        machine.add_meta("env", f"SWITCH_CAPACITIES={caps}")
     if "default_gateway" in data:
         machine.add_meta("env", f"DEFAULT_GATEWAY={data["default_gateway"]}")
-    if "connected_host" in data:
-        machine.add_meta("env", f"CONNECTED_HOST={data["connected_host"]}")
 
 lab.machines["controller"].create_file_from_string(topology_json, "/topology.json")
 

@@ -49,19 +49,19 @@ echo 'alias ovs-ofctl="ovs-ofctl -O OpenFlow13"' >> /root/.bashrc
 # BANDWIDTH MASSIMA NELLA REGOLA
 # tc capacita max
 
-if [ -n "$SWITCH_LINKS" ]; then
-    IFS=',' read -ra LINKS <<< "$SWITCH_LINKS"
-    for entry in "${LINKS[@]}"; do
-        IFS=':' read -r iface cap <<< "$entry"
-        if ip link show "$iface" > /dev/null 2>&1; then
-            # Rimuove eventuali qdisc esistenti (per sicurezza)
-            tc qdisc del dev "$iface" root 2>/dev/null || true
-            tc qdisc add dev "$iface" root handle 1: htb default 1
-            tc class add dev "$iface" parent 1: classid 1:1 htb rate "${cap}mbit" ceil "${cap}mbit"
-            tc qdisc add dev "$iface" parent 1:1 sfq perturb 10
-            echo "Limitato $iface a ${cap} Mbit (HTB)"
-        else
-            echo "Attenzione: interfaccia $iface non trovata"
-        fi
-    done
-fi
+# if [ -n "$SWITCH_CAPACITIES" ]; then
+#     IFS=',' read -ra LINKS <<< "$SWITCH_CAPACITIES"
+#     for entry in "${LINKS[@]}"; do
+#         IFS=':' read -r iface cap <<< "$entry"
+#         if ip link show "$iface" > /dev/null 2>&1; then
+#             # Rimuove eventuali qdisc esistenti (per sicurezza)
+#             tc qdisc del dev "$iface" root 2>/dev/null || true
+#             tc qdisc add dev "$iface" root handle 1: htb default 1
+#             tc class add dev "$iface" parent 1: classid 1:1 htb rate "${cap}mbit" ceil "${cap}mbit"
+#             tc qdisc add dev "$iface" parent 1:1 sfq perturb 10
+#             echo "Limitato $iface a ${cap} Mbit (HTB)"
+#         else
+#             echo "Attenzione: interfaccia $iface non trovata"
+#         fi
+#     done
+# fi
