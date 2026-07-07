@@ -82,6 +82,7 @@ def run_test(target_name, bitrate, duration):
             
     except Exception as e:
         print(f"[-] Network/Orchestration error occurred: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Trigger remote iperf3 server and run client test.")
