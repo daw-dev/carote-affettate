@@ -25,6 +25,7 @@ class StaticSlicingController(app_manager.RyuApp):
         wsgi.register(SlicingRestApi, {api_instance_name: self})
         self.logger.info("Static Slicing Controller Ready.")
         self.datapaths = {}
+        self.meter_ids = {}
         self.slices = {}
 
     def load_topology(self, filepath):
@@ -74,20 +75,34 @@ class StaticSlicingController(app_manager.RyuApp):
 
         datapath.send_msg(mod)
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+    def add_flow(self, datapath, priority, match, actions, bandwidth = None):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
-                                             actions)]
-        if buffer_id:
-            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
-                                    priority=priority, match=match,
-                                    instructions=inst)
-        else:
-            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                    match=match, instructions=inst)
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
+
+        if bandwidth != None: 
+            meter_id = self.meter_ids.get(datapath.id)
+            if meter_id == None:
+                meter_id = self.meter_ids[datapath.id] = 1
+            self.meter_ids[datapath.id] += 1
+
+            bands = [parser.OFPMeterBandDrop(rate=bandwidth)]
+            meter_mod = parser.OFPMeterMod(
+                datapath=datapath,
+                command=datapath.ofproto.OFPMC_ADD,
+                flags=datapath.ofproto.OFPMF_KBPS,
+                meter_id=meter_id,
+                bands=bands
+            )
+            datapath.send_msg(meter_mod)
+
+            inst.append(parser.OFPInstructionMeter(meter_id))
+
+        mod = parser.OFPFlowMod(datapath=datapath, priority=priority, match=match, instructions=inst)
+
         self.logger.info("Sending a FLOW_MOD to switch")
+
         datapath.send_msg(mod)
 
     def delete_flow(self, datapath, match):
@@ -100,7 +115,10 @@ class StaticSlicingController(app_manager.RyuApp):
         datapath.send_msg(mod)
 
 
-    def instruct_switches(self, path, src_ip, dst_ip):
+    def instruct_switches(self, path, bandwidth):
+        src_ip = self.net.nodes[path[0]]["device_address"]
+        dst_ip = self.net.nodes[path[-1]]["device_address"]
+
         self.logger.info(f"creating path {path} from {src_ip} to {dst_ip}")
         for i in range(1, len(path) - 1):
             current_node = path[i]
@@ -143,7 +161,7 @@ class StaticSlicingController(app_manager.RyuApp):
                 actions.append(parser.OFPActionSetField(eth_dst=self.net.nodes[path[-1]]["mac_address"]))
             actions.append(parser.OFPActionOutput(out_port))
             
-            self.add_flow(datapath, 100, match, actions)
+            self.add_flow(datapath, 100, match, actions, bandwidth)
             self.logger.info(f"Installed flow on {current_node}: in={in_port} -> out={out_port}")
 
     def reinstruct_switches(self, path, src_ip, dst_ip):
@@ -186,7 +204,10 @@ class StaticSlicingController(app_manager.RyuApp):
                 v = path[i+1]
                 self.net.edges[u, v]['capacity'] -= bandwidth
 
-            self.instruct_switches(path, self.net.nodes[src]["device_address"], self.net.nodes[dst]["device_address"])
+            self.instruct_switches(path, bandwidth)
+            print(path)
+            self.instruct_switches(path[::-1], bandwidth)
+            print(path[::-1])
             self.slices[(src, dst)] = (path, bandwidth)
 
             return path
