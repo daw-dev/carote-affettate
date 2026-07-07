@@ -76,25 +76,19 @@ class StaticSlicingController(app_manager.RyuApp):
 
         datapath.send_msg(mod)
 
-    def add_flow(self, datapath, priority, match, actions, bandwidth=None):
+    def add_flow(self, datapath, priority, match, actions, bandwidth=None, meter_id=None):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
 
-        if bandwidth is not None: 
+        if meter_id is not None:
+            inst.append(parser.OFPInstructionMeter(meter_id))
+        elif bandwidth is not None: 
             meter_id = self.meter_ids.get(datapath.id, 1)
             self.meter_ids[datapath.id] = meter_id + 1
 
-            bands = [parser.OFPMeterBandDrop(rate=bandwidth)]
-            meter_mod = parser.OFPMeterMod(
-                datapath=datapath,
-                command=datapath.ofproto.OFPMC_ADD,
-                flags=datapath.ofproto.OFPMF_KBPS,
-                meter_id=meter_id,
-                bands=bands
-            )
-            datapath.send_msg(meter_mod)
+            self.add_meter(datapath, meter_id, bandwidth)
 
             inst.append(parser.OFPInstructionMeter(meter_id))
 
@@ -113,8 +107,33 @@ class StaticSlicingController(app_manager.RyuApp):
         self.logger.info("Deleting a path")
         datapath.send_msg(mod)
 
+    def add_meter(self, datapath, meter_id, bandwidth, command=None):
+        if command is None:
+            command = datapath.ofproto.OFPMC_ADD
+        parser = datapath.ofproto_parser
+        bands = [parser.OFPMeterBandDrop(rate=bandwidth)]
+        meter_mod = parser.OFPMeterMod(
+            datapath=datapath,
+            command=command,
+            flags=datapath.ofproto.OFPMF_KBPS,
+            meter_id=meter_id,
+            bands=bands
+        )
+        datapath.send_msg(meter_mod)
 
-    def add_path_flows(self, path, bandwidth):
+    def remove_meter(self, datapath, meter_id):
+        parser = datapath.ofproto_parser
+        meter_mod = parser.OFPMeterMod(
+            datapath=datapath,
+            command=datapath.ofproto.OFPMC_DELETE,
+            flags=datapath.ofproto.OFPMF_KBPS,
+            meter_id=meter_id,
+            bands=[]
+        )
+        datapath.send_msg(meter_mod)
+
+
+    def add_path_flows(self, path, bandwidth, meters=None):
         src_ip = self.net.nodes[path[0]]["device_address"]
         dst_ip = self.net.nodes[path[-1]]["device_address"]
 
@@ -160,7 +179,10 @@ class StaticSlicingController(app_manager.RyuApp):
                 actions.append(parser.OFPActionSetField(eth_dst=self.net.nodes[path[-1]]["mac_address"]))
             actions.append(parser.OFPActionOutput(out_port))
             
-            self.add_flow(datapath, 100, match, actions, bandwidth)
+            if meters and switch_id in meters:
+                self.add_flow(datapath, 100, match, actions, meter_id=meters[switch_id])
+            else:
+                self.add_flow(datapath, 100, match, actions, bandwidth=bandwidth)
             self.logger.info(f"Installed flow on {current_node}: in={in_port} -> out={out_port}")
 
         return True
@@ -207,18 +229,36 @@ class StaticSlicingController(app_manager.RyuApp):
         try:
             path = nx.shortest_path(valid_links, source=src, target=dst)
 
+            meters = {}
+            for i in range(1, len(path) - 1):
+                current_node = path[i]
+                switch_id = self.net.nodes[current_node].get("switch_id")
+                if not switch_id:
+                    continue
+                datapath = self.datapaths.get(switch_id)
+                if not datapath:
+                    self.logger.warning(f"Switch {switch_id} is not connected to Ryu yet!")
+                    return []
+                
+                meter_id = self.meter_ids.get(datapath.id, 1)
+                self.meter_ids[datapath.id] = meter_id + 1
+                meters[switch_id] = meter_id
+                
+                self.add_meter(datapath, meter_id, bandwidth)
+                self.logger.info(f"Created shared meter {meter_id} on switch {switch_id} with rate {bandwidth}")
+
             for i in range(len(path) - 1):
                 u = path[i]
                 v = path[i+1]
                 if "capacity" in self.net.edges[u, v]:
                     self.net.edges[u, v]['capacity'] -= bandwidth
 
-            if not self.add_path_flows(path, bandwidth):
+            if not self.add_path_flows(path, bandwidth, meters):
                 return []
-            if not self.add_path_flows(path[::-1], bandwidth):
+            if not self.add_path_flows(path[::-1], bandwidth, meters):
                 return []
 
-            self.slices[(src, dst)] = (path, bandwidth)
+            self.slices[(src, dst)] = (path, bandwidth, meters)
 
             return path
         except nx.NetworkXNoPath:
@@ -226,7 +266,7 @@ class StaticSlicingController(app_manager.RyuApp):
     
     def remove_slice(self, src, dst):
         if((src, dst) in self.slices):
-            (path, bandwidth) = self.slices[(src, dst)]
+            path, bandwidth, meters = self.slices[(src, dst)]
             for i in range(len(path) - 1):
                 u = path[i]
                 v = path[i+1]
@@ -234,6 +274,13 @@ class StaticSlicingController(app_manager.RyuApp):
                     self.net.edges[u, v]['capacity'] += bandwidth
             self.remove_path_flows(path)
             self.remove_path_flows(path[::-1])
+
+            for switch_id, meter_id in meters.items():
+                datapath = self.datapaths.get(switch_id)
+                if datapath:
+                    self.remove_meter(datapath, meter_id)
+                    self.logger.info(f"Deleted meter {meter_id} from switch {switch_id}")
+
             del self.slices[(src, dst)]
             return True
         else:
@@ -246,7 +293,7 @@ class StaticSlicingController(app_manager.RyuApp):
     
     def slice_info(self, src, dst):
         if(src, dst) in self.slices:
-            path, bandwidth = self.slices[(src, dst)]
+            path, bandwidth, _ = self.slices[(src, dst)]
             return {"path": path, "bandwidth": bandwidth}
         return None
     
@@ -264,7 +311,7 @@ class StaticSlicingController(app_manager.RyuApp):
         if (src, dst) not in self.slices:
             return False, "Slice does not exist"
         
-        path, current_bandwidth = self.slices[(src, dst)]
+        path, current_bandwidth, meters = self.slices[(src, dst)]
         delta = new_bandwidth - current_bandwidth
 
         if delta > 0:
@@ -278,12 +325,16 @@ class StaticSlicingController(app_manager.RyuApp):
             if "capacity" in self.net.edges[u, v]:
                 self.net.edges[u, v]['capacity'] -= delta
             
-        if not self.add_path_flows(path, new_bandwidth):
-            return False, "Failed to update switches (forward path)"
-        if not self.add_path_flows(path[::-1], new_bandwidth):
-            return False, "Failed to update switches (reverse path)"
+        for switch_id, meter_id in meters.items():
+            datapath = self.datapaths.get(switch_id)
+            if not datapath:
+                self.logger.warning(f"Switch {switch_id} is not connected to Ryu yet!")
+                return False, f"Switch {switch_id} not connected"
+            
+            self.add_meter(datapath, meter_id, new_bandwidth, command=datapath.ofproto.OFPMC_MODIFY)
+            self.logger.info(f"Modified meter {meter_id} on switch {switch_id} to new rate {new_bandwidth}")
 
-        self.slices[(src, dst)] = (path, new_bandwidth)
+        self.slices[(src, dst)] = (path, new_bandwidth, meters)
         return True, "Modified"
 
 
