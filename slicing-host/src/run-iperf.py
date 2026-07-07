@@ -11,10 +11,18 @@ import os
 CONTROL_PORT = 9999
 
 def run_test(target_ip, duration):
-    src_ip = os.environ.get('DEVICE_ADDRESS')
+    src_node = os.environ.get('NAME')
+    target_node = target_ip
+
+    # If target_ip is an IP address, resolve it to hostname
+    try:
+        socket.inet_aton(target_ip)
+        target_node = socket.gethostbyaddr(target_ip)[0]
+    except (socket.error, Exception):
+        pass
 
     # Before running the test, check if a network slice is active.
-    command = ["curl", "-X", "GET", f"controller:8080/slice/{src_ip}/{target_ip}"]
+    command = ["curl", "-s", "-X", "GET", f"controller:8080/slice/{src_node}/{target_node}"]
 
     try:
         result = subprocess.run(
@@ -26,12 +34,16 @@ def run_test(target_ip, duration):
         
         raw_output = result.stdout
 
-        if not raw_output or raw_output == "null":
-            print(f"[-] No active network slice between {src_ip} and {target_ip} found. Please create a slice before running the test.")
+        if not raw_output or raw_output.strip() == "null":
+            print(f"[-] No active network slice between {src_node} and {target_node} found. Please create a slice before running the test.")
             sys.exit(1)
-        else:
-            slice_data = json.loads(raw_output)
-            print(f"[+]Slice found - Path: {slice_data['path']}, Bandwidth: {slice_data['bandwidth']}")
+        
+        slice_data = json.loads(raw_output)
+        if "error" in slice_data or "path" not in slice_data:
+            print(f"[-] No active network slice between {src_node} and {target_node} found: {slice_data.get('error', 'Unknown error')}")
+            sys.exit(1)
+            
+        print(f"[+] Slice found - Path: {slice_data['path']}, Bandwidth: {slice_data['bandwidth']}")
 
     except subprocess.CalledProcessError as e:
         print(f"Command failed: {e.stderr}")
