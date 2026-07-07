@@ -6,4 +6,4 @@ ip link set eth0 up
 sed -i '/127.0.1.1/d' /etc/hosts
 
 # Start Ryu
-# ryu-manager /controller/main.py
+ryu-manager /controller/main.py

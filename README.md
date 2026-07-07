@@ -60,7 +60,7 @@ To stop the simulation just press enter.
 
 If for some reason you closed the program without pressing enter, `kathara wipe` can still forcibly stop the simulation.
 
-### 4. Connecting to a device
+### 3. Connecting to a device
 
 To connect to a specific device, you have to run bash on the relative container, to make it easier,
 the repository provides some simple helper commands. To activate them:
@@ -85,7 +85,7 @@ And then you can just run:
 konnect <device-name>
 ```
 
-### 5. What to do in the simulation
+### 4. What to do in the simulation
 
 To play around with the simulation, you should connect to a **host** (use `konnect host[number]`), then if you take a look
 at the `/host/` folder, you'll see that there are some scripts to play around with.

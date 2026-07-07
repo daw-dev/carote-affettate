@@ -17,6 +17,7 @@ def run_agent():
         server_socket.bind(("0.0.0.0", CONTROL_PORT))
         server_socket.listen(5)
         print(f"[*] Control Agent listening on PORT {CONTROL_PORT}...")
+
     except Exception as e:
         print(f"[-] Failed to bind to port {CONTROL_PORT}: {e}")
         sys.exit(1)
@@ -36,7 +37,7 @@ def run_agent():
                 # Launch the local iperf3 server.
                 subprocess.Popen(["iperf3", "-s", "-1"])
                 # This automatically opens the default iperf3 data port: 5201
-                # '-1' forces the server to exit right after this single test finishes
+                # '-1' forces the server to exit after this single test finishes
                 
                 # Give iperf3 1 second to successfully bind to PORT 5201
                 time.sleep(1)
