@@ -141,7 +141,20 @@ Slices can be created, updated and destroyed.
 
 ## Our solution
 
-<!-- qualcosa sulla simulazione -->
+The kathara simulation is run using the kathara python api to allow a more flexible setup.
+To save space and to make the code cleaner, some bash startup script files are created and are sent in the 
+machine's container. Such scripts are identical for machines of the same kind (controller/host/switch) and 
+highly rely on the definition of some environment variable (like $NAME, $DEVICE_ADDRESS, ...) that are set 
+through the "env" meta variable of the kathara lab.
+
+While switch use a bare-bone kathara/sdn image, hosts and controllers are a bit more complex.
+The controller uses a custom slicing-controller image (that extends kathara/sdn with the python libraries) used 
+for the controller) and a readonly volume is created to be able to read the
+[slicing-controller](slicing-controller/src) folder. Similarly, the hosts use the default kathara/base 
+image also a readonly volume to read the [slicing-host](slicing-host/src) folder.
+
+Everything is first modeled using the networkx python library so that later the controller can use the exact same 
+structure that the simulation uses. The networkx graph is then analyzed to be turned into an actual kathara simulation.
 
 To make host-controller communication possible, the network structure had to be laid out in a specific manner:
 - Every host is directly connected to exactly one switch with whom it shares a specific sub-network.
