@@ -2,20 +2,14 @@
 
 ## Usage
 
-### 1. Build the Docker images (Platform Independent)
+### 1. Build the Docker image (Platform Independent)
 
 **This step has to be done only the first time**
 
-1. Build the controller image:
+Build the controller image:
 
 ```bash
 docker build -t slicing-controller slicing-controller
-```
-
-2. Build the host image:
-
-```bash
-docker build -t slicing-host slicing-host
 ```
 
 Or through one of the build scripts `build.sh`, `build.nu`, `build.ps1` or `build.bat`
@@ -90,7 +84,7 @@ konnect <device-name>
 To play around with the simulation, you should connect to a **host** (use `konnect host[number]`).
 At first, the host will only be able to communicate with the controller. Through this connection, the host
 can manage slices that enable to communicate with the other hosts.
-To do so, you can run the following commands:
+To do so, you can run the following commands (bandwidth must be specified in kbps):
 
 To request a slice:
 ```bash
@@ -126,7 +120,7 @@ ping <other-host>
 
 To perform a more interesting test, you can also use: 
 ```bash
-run-iperf --ip <other-host> [--bitrate <bitrate>] [--t <duration>]
+run-iperf --ip <other-host> [--bitrate <bitrate>] [--time <duration>]
 ```
 
 ## The goal
@@ -190,3 +184,11 @@ iperf server instance to allow the requesting host to run the test. Such test ca
 on the reserved slice it's not possible to exceed the set limit.
 
 The daemon is scripted in such way that in future implementations other kinds of connections may be requested.
+
+To simplify communication, the controller is set up to run a dns server to resolve the names of the devices when needed.
+This allows to run `ping host3` instead of `ping 10.3.0.2`.
+
+## Other
+
+During the testing phase of the project, wireshark was also added to be able to sniff raw packets in the network.
+This feature was later not further developed, but it's still present in the final build.
