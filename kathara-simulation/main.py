@@ -114,6 +114,7 @@ for u, v in G.edges():
         lab.connect_machine_to_link(u, "CONTROLLER")
         continue
 
+    # TODO: don't rely on the fact that interface is 00:00:...:id
     lab.connect_machine_to_link(u, f"{u}__to__{v}", mac_address=G.nodes[u].get("mac_address"))
     lab.connect_machine_to_link(v, f"{u}__to__{v}", mac_address=G.nodes[v].get("mac_address"))
 
