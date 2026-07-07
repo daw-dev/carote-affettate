@@ -101,13 +101,3 @@ update-slice(){
         echo;
     fi
 }
-
-
-# ```bash
-# curl --json '{"bandwidth": 2}' controller:8080/slice/host1/host2
-# curl --json '{"bandwidth": 2}' controller:8080/slice/host2/host1
-# curl -X DELETE controller:8080/slice/host1/host2
-# curl -X GET controller:8080/slice/host1/host2
-# curl -X DELETE controller:8080/slice/host1
-# curl -X PUT --json '{"bandwidth": 5}' controller:8080/slice/host1/host2
-# ```
