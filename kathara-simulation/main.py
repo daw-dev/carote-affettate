@@ -42,25 +42,22 @@ for i in range(1, 5):
             hidden_address=f"10.0.0.{i}",
             connected_host=f"10.{i}.0.2",
             switch_id=i,
+            port_count=0,
         )
-    G.add_edge(f"switch{i}", "controller", capacity=math.inf)
-    G.add_edge(f"switch{i}", f"host{i}", capacity=math.inf)
+    G.add_edge(f"switch{i}", "controller")
+    G.add_edge(f"switch{i}", f"host{i}")
 
 for i in range(1, 5):
-    for j in range(1, 5):
-        if i == j:
-            continue
-        G.add_edge(f"switch{i}", f"switch{j}", capacity=random.randrange(5,25))
+    for j in range(1, i):
+        cap=random.randrange(5, 25)
+        G.add_edge(f"switch{i}", f"switch{j}", capacity=cap * cap)
 
 def switch_port(node):
-    if node == "controller":
+    if not "port_count" in G.nodes[node]:
         return
-    if "port_count" in G.nodes[node]:
-        G.nodes[node]["port_count"] += 1
-        return G.nodes[node]["port_count"] - 1
-    else:
-        G.nodes[node]["port_count"] = 1
-        return G.nodes[node]["port_count"] - 1
+    
+    G.nodes[node]["port_count"] += 1
+    return G.nodes[node]["port_count"] - 1
 
 for u, v in G.edges():
     u_if = switch_port(u)
@@ -79,6 +76,15 @@ print(topology_json)
 
 lab = Lab("carote affettate")
 
+def switch_capacities(switch_name):
+    capacities = {}
+    for _, _, data in G.edges(switch_name, data=True):
+        if "capacity" in data:
+            interface = f"eth{data["ports"][switch_name]}"
+            capacities[interface] = data["capacity"]
+    
+    return ",".join([f"{iface}:{cap}" for iface, cap in capacities.items()])
+
 for node, data in G.nodes(data=True):
     machine = lab.new_machine(node, image=data["image"])
     lab.create_startup_file_from_path(machine, data["startup"])
@@ -90,10 +96,11 @@ for node, data in G.nodes(data=True):
     if "switch_id" in data:
         machine.add_meta("env", f"SWITCH_ID={data["switch_id"]}")
         machine.add_meta("env", f"HIDDEN_IP={data["hidden_address"]}")
+        machine.add_meta("env", f"CONNECTED_HOST={data["connected_host"]}")
+        caps = switch_capacities(node)
+        machine.add_meta("env", f"SWITCH_CAPACITIES={caps}")
     if "default_gateway" in data:
         machine.add_meta("env", f"DEFAULT_GATEWAY={data["default_gateway"]}")
-    if "connected_host" in data:
-        machine.add_meta("env", f"CONNECTED_HOST={data["connected_host"]}")
 
 lab.machines["controller"].create_file_from_string(topology_json, "/topology.json")
 

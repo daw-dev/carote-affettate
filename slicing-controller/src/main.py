@@ -191,10 +191,14 @@ class StaticSlicingController(app_manager.RyuApp):
             self.delete_flow(datapath, match)
             self.logger.info(f"Deleting path on {current_node}")
 
-
+    def capacity_filter(self, capacity):
+        def filter(u, v):
+            return "capacity" not in self.net.edges[u, v] or self.net.edges[u, v]["capacity"] > capacity
+        
+        return filter
 
     def reserve_slice(self, src, dst, bandwidth):
-        valid_links = nx.subgraph_view(self.net, filter_edge=lambda u, v: self.net.edges[u, v]["capacity"] > bandwidth)
+        valid_links = nx.subgraph_view(self.net, filter_edge=self.capacity_filter(bandwidth))
 
         try:
             path = nx.shortest_path(valid_links, source=src, target=dst)
@@ -202,7 +206,8 @@ class StaticSlicingController(app_manager.RyuApp):
             for i in range(len(path) - 1):
                 u = path[i]
                 v = path[i+1]
-                self.net.edges[u, v]['capacity'] -= bandwidth
+                if "capacity" in self.net.edges[u, v]:
+                    self.net.edges[u, v]['capacity'] -= bandwidth
 
             self.instruct_switches(path, bandwidth)
             print(path)
@@ -220,7 +225,8 @@ class StaticSlicingController(app_manager.RyuApp):
             for i in range(len(path) - 1):
                 u = path[i]
                 v = path[i+1]
-                self.net.edges[u, v]['capacity'] += bandwidth
+                if "capacity" in self.net.edges[u, v]:
+                    self.net.edges[u, v]['capacity'] += bandwidth
             self.reinstruct_switches(path, self.net.nodes[src]["device_address"], self.net.nodes[dst]["device_address"])
             del self.slices[(src, dst)]
             return True
@@ -258,12 +264,13 @@ class StaticSlicingController(app_manager.RyuApp):
         if delta > 0:
             for i in range(len(path)-1):
                 u, v = path[i], path[i+1]
-                if self.net.edges[u, v]['capacity'] < delta:
+                if "capacity" in self.net.edges[u, v] and self.net.edges[u, v]['capacity'] < delta:
                     return False, "Insufficient bandwidth"
                 
             for i in range(len(path)-1):
                 u, v = path[i], path[i+1]
-                self.net.edges[u, v]['capacity'] += current_bandwidth - new_bandwidth
+                if "capacity" in self.net.edges[u, v]:
+                    self.net.edges[u, v]['capacity'] += current_bandwidth - new_bandwidth
                 
             self.slices[(src, dst)] = (path, new_bandwidth)
             return True, "Modified"
@@ -312,6 +319,7 @@ class SlicingRestApi(ControllerBase):
                 return Response(status=503, json_body={"status": "Denied", "reason": "Insufficient Bandwidth"})
 
         except Exception as e:
+            print(e)
             return Response(status=400, json_body={"error": str(e)})
 
 
