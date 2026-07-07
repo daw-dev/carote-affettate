@@ -141,6 +141,8 @@ Slices can be created, updated and destroyed.
 
 ## Our solution
 
+<!-- qualcosa sulla simulazione -->
+
 To make host-controller communication possible, the network structure had to be laid out in a specific manner:
 - Every host is directly connected to exactly one switch with whom it shares a specific sub-network.
     - host{i} is connected to switch{i} inside the network 10.{i}.0.0/16
@@ -150,3 +152,28 @@ To make host-controller communication possible, the network structure had to be 
 - Every switch performs Network Address Translation (from 10.{i}.0.1 to 10.254.0.{i}) to allow communication
     between host and controller 
 
+The controller loads the topology from the static .json file so that it is aware of every information of the graph.
+It also runs a http rest daemon so that it listens for http requests. When a slice request arrives, it uses the saved 
+information about the graph to figure out a path to allow the communication between the two hosts with the desired 
+bandwidth (if any), sends new rules to the switches, it updates the information in the graph and notifies the 
+requesting host about the result of the operation. When a slice gets updated or removed, the same rules are updated 
+or removed accordingly.
+
+To achieve the communication, two kinds of MODs are sent to the switches:
+
+FlowMOD:
+It matches the source ip and destination ip of the ip packet and it forwards the packet to a specific port. It also 
+includes information for the MeterMODs (explained later).
+The last switch of the path also has the responsibility of changing the layer 2 addresses of the packet so that the 
+destination host doesn't discard the incoming package.
+
+MeterMOD:
+It enforces a maximum bandwidth in a slice by dropping every packet that exceeds such limit. The two directions of 
+the slice share the same meter, so that the maximum bandwidth is calculated assuming data flow in both directions 
+simultaneously.
+
+Every host silently runs a daemon that awaits for TCP connections and, when using the run-iperf command, it runs a 
+iperf server instance to allow the requesting host to run the test. Such test can be used to show that, in fact, 
+on the reserved slice it's not possible to exceed the set limit.
+
+The daemon is scripted in such way that in future implementations other kinds of connections may be requested.
