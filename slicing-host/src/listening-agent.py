@@ -4,7 +4,7 @@ import subprocess
 import time
 import sys
 
-# The Control Port used to orchestrate the test before iperf starts
+# The Control Port used to organize the iperf test
 CONTROL_PORT = 9999 
 
 def run_agent():
