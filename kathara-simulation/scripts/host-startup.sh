@@ -5,6 +5,7 @@ ip route add default via $DEFAULT_GATEWAY dev eth0
 
 echo "nameserver $CONTROLLER_ADDRESS" > /etc/resolv.conf
 
+echo "source /host/slice.sh" >> /root/.bashrc
 
 # Starting listener for incoming iperf3 tests
 python3 /host/listening-agent.py
