@@ -17,6 +17,7 @@ request-slice(){
             return 1
         fi
         curl http://controller:8080/slice/$NAME/$1 --json '{"bandwidth": '"$2"'}';
+        echo;
     fi
 
     if [[ $# -eq 3 ]]; then
@@ -25,6 +26,7 @@ request-slice(){
             return 1
         fi
         curl http://controller:8080/slice/$1/$2 --json '{"bandwidth": '"$3"'}';
+        echo;
     fi
 }
 
@@ -40,10 +42,12 @@ delete-slice(){
             return 1
         fi
         curl http://controller:8080/slice/$NAME/$1 -X DELETE;
+        echo;
     fi
 
     if [[ $# -eq 2 ]]; then
         curl http://controller:8080/slice/$1/$2 -X DELETE;
+        echo;
     fi
 
     if [[ $# -gt 2 ]]; then
@@ -68,10 +72,12 @@ slice-info(){
 
     if [[ $# -eq 1 ]]; then
         curl http://controller:8080/slice/$NAME/$1 -X GET;
+        echo;
     fi
 
     if [[ $# -eq 2  ]]; then
         curl http://controller:8080/slice/$1/$2 -X GET;
+        echo;
     fi
 }
 
@@ -88,9 +94,11 @@ update-slice(){
     fi
     if [[ $# -eq 2 ]]; then
         curl http://controller:8080/slice/$NAME/$1 --json '{"bandwidth": '"$2"'}' -X PUT;
+        echo;
     fi
     if [[ $# -eq 3 ]]; then
         curl http://controller:8080/slice/$1/$2 --json '{"bandwidth": '"$3"'}' -X PUT;
+        echo;
     fi
 }
 
