@@ -13,17 +13,17 @@ api_instance_name = 'slicing_api_app'
 DEFAULT_TOPOLOGY_PATH = '/topology.json'
 DEFAULT_HOSTS_PATH = '/etc/hosts'
 
-class StaticSlicingController(app_manager.RyuApp):
+class DynamicSlices(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {'wsgi': WSGIApplication}
 
     def __init__(self, *args, **kwargs):
-        super(StaticSlicingController, self).__init__(*args, **kwargs)
+        super(DynamicSlices, self).__init__(*args, **kwargs)
         self.load_topology(DEFAULT_TOPOLOGY_PATH)
         self.configure_hosts_file(DEFAULT_HOSTS_PATH)
         
         wsgi = kwargs['wsgi']
-        wsgi.register(SlicingRestApi, {api_instance_name: self})
+        wsgi.register(DynamicSlicesApi, {api_instance_name: self})
         self.logger.info("Static Slicing Controller Ready.")
         self.datapaths = {}
         self.meter_ids = {}
@@ -339,9 +339,9 @@ class StaticSlicingController(app_manager.RyuApp):
 
 
 
-class SlicingRestApi(ControllerBase):
+class DynamicSlicesApi(ControllerBase):
     def __init__(self, req, link, data, **config):
-        super(SlicingRestApi, self).__init__(req, link, data, **config)
+        super(DynamicSlicesApi, self).__init__(req, link, data, **config)
         self.app = data[api_instance_name]
 
     @route('hello-world', '/hello-world', methods=['GET'])
