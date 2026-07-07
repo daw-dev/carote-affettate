@@ -31,7 +31,7 @@ request-slice(){
 }
 
 
-delete-slice(){
+remove-slice(){
     if [[ $# -eq 0 ]]; then
         curl http://controller:8080/slice/$NAME -X DELETE;
     fi

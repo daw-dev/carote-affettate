@@ -51,7 +51,7 @@ On Windows (PowerShell):
 #### 2.4. Start the simulation
 
 ```bash
-python main.py
+python start-simulation.py
 ```
 
 #### 2.5. Stopping the simulation
@@ -87,25 +87,36 @@ konnect <device-name>
 
 ### 4. What to do in the simulation
 
-To play around with the simulation, you should connect to a **host** (use `konnect host[number]`), then if you take a look
-at the `/host/` folder, you'll see that there are some scripts to play around with.
+To play around with the simulation, you should connect to a **host** (use `konnect host[number]`).
+At first, the host will only be able to communicate with the controller. Through this connection, the host
+can manage slices that enable to communicate with the other hosts.
+To do so, you can run the following commands:
 
-The main one is `/host/request-slice.py` that is used to request a slice to the controller. The usage is ...
+To request a slice:
+```bash
+request-slice [source] destination bandwidth
+```
+If no source is provided, the requesting host is assumed
 
-The other ones are small applications like `/host/web-server.py`, `/host/web-client.py`, ...
+To update a slice:
+```bash
+update-slice [source] destination bandwidth
+```
+If no source is provided, the requesting host is assumed
 
-<!-- ```bash
-curl --json '{"bandwidth": 2}' controller:8080/slice/host1/host2
-curl --json '{"bandwidth": 2}' controller:8080/slice/host2/host1
-curl -X DELETE controller:8080/slice/host1/host2
-curl -X GET controller:8080/slice/host1/host2
-curl -X DELETE controller:8080/slice/host1
-curl -X PUT --json '{"bandwidth": 5}' controller:8080/slice/host1/host2
-``` -->
+To remove a slice:
+```bash
+remove-slice [source] [destination]
+```
+If only one argument is provided, the slice to be removed is the one between the requesting host and the 
+specified host.
+If no argument is provided, all the slices for which the requesting host is the source are removed.
 
-### _BONUS:_ How to personalize the network
-
-
+To get information about an active slice:
+```bash
+slice-info [source] destination
+```
+If no source is provided, the requesting host is assumed
 
 ## The goal
 
