@@ -26,7 +26,7 @@ docker build -t slicing-controller slicing-controller
 3. **Activate the virtual environment:**
    * **Linux/macOS (bash/zsh):**
      ```bash
-     . .venv/bin/activate
+     .venv/bin/activate
      ```
    * **Linux/macOS (Nushell):**
      ```nushell
@@ -34,7 +34,7 @@ docker build -t slicing-controller slicing-controller
      ```
    * **Windows (PowerShell):**
      ```powershell
-     .venv\Scripts\Activate.ps1
+     . .venv\Scripts\Activate.ps1
      ```
 4. **Start the simulation:**
    ```bash
@@ -118,3 +118,9 @@ To enable host-to-controller communication without open paths between arbitrary 
 When a slice request is approved, the controller calculates the path using `networkx` and sends OpenFlow 1.3 rules to the switches:
 * **FlowMODs:** Route traffic based on matching the source and destination IP. The final switch rewrites layer-2 MAC addresses to match the target host.
 * **MeterMODs:** Enforce the maximum bandwidth limit. Both directions of a slice share the same meter to limit aggregate throughput.
+
+### Custom iperf Test Implementation
+To allow bandwidth testing, each host silently runs a custom daemon that listens for incoming TCP connections. When the `run-iperf` command is executed on the requesting host, it communicates with this remote daemon, which triggers an `iperf3` server instance on the target host. 
+
+The client then runs an `iperf3` client to test the path. This test demonstrates that throughput on the reserved slice cannot exceed the configured limit. The daemon is designed in an extensible manner so that other types of connections or tests can be easily requested in the future.
+
