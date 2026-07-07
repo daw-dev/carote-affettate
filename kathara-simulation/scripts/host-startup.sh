@@ -7,4 +7,4 @@ echo "nameserver $CONTROLLER_ADDRESS" > /etc/resolv.conf
 
 
 # Starting listener3 for incoming iperf3 tests
-python3 /host/listening_agent.py
+python3 /host/listening-agent.py
