@@ -54,7 +54,7 @@ def run_test(target_name, bitrate, duration):
         print(f"[*] Step 1: Connecting to Agent at {target_name} on PORT {CONTROL_PORT}...")
         control_socket.connect((target_name, CONTROL_PORT))
         
-        # Tell the Agent to spin up its iperf3 server
+        # Tell the Agent to start its iperf3 server
         print("[*] Step 2: Sending 'START_SERVER' command...")
         control_socket.sendall(b"START_SERVER")
         
