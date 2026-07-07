@@ -94,13 +94,13 @@ To do so, you can run the following commands:
 
 To request a slice:
 ```bash
-request-slice [source] destination bandwidth
+request-slice [source] <destination> <bandwidth>
 ```
 If no source is provided, the requesting host is assumed
 
 To update a slice:
 ```bash
-update-slice [source] destination bandwidth
+update-slice [source] <destination> <bandwidth>
 ```
 If no source is provided, the requesting host is assumed
 
@@ -114,12 +114,39 @@ If no argument is provided, all the slices for which the requesting host is the 
 
 To get information about an active slice:
 ```bash
-slice-info [source] destination
+slice-info [source] <destination>
 ```
 If no source is provided, the requesting host is assumed
 
+Once a slice is reserved between two hosts, they can communicate using all the requested bandwidth,
+you can test this using:
+```bash
+ping <other-host>
+```
+
+To perform a more interesting test, you can also use: 
+```bash
+run-iperf --ip <other-host> [--bitrate <bitrate>] [--t <duration>]
+```
+
 ## The goal
+
+The main goal of the project is to simulate a sdn controller that allows for dynamic slices.
+
+We also decided to implement the sdn controller as a in-band controller: meaning that the controller
+itself is a node in the network like the others. Furthermore, the slices are indirectly managed by the 
+hosts by simply sending http requests to the controller via the network.
+
+Slices can be created, updated and destroyed.
 
 ## Our solution
 
+To make host-controller communication possible, the network structure had to be laid out in a specific manner:
+- Every host is directly connected to exactly one switch with whom it shares a specific sub-network.
+    - host{i} is connected to switch{i} inside the network 10.{i}.0.0/16
+    - switch{i} is the default gateway of host{i}
+- Every switch is directly connected to the controller on the 10.254.0.0/16 sub-network.
+    - The virtual openflow switch br0 of switch{i} is assigned to the 10.254.0.{i} address
+- Every switch performs Network Address Translation (from 10.{i}.0.1 to 10.254.0.{i}) to allow communication
+    between host and controller 
 
